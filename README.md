@@ -31,6 +31,10 @@ Navegue pelo código-fonte para explorar os exemplos de utilização do RxJava e
 3. Navegue até os pacotes de exemplos e explore os diferentes arquivos.
 4. Execute os exemplos e observe os resultados.
 
+### Comandos Úteis (Linux)
+- Listar o número de linhas de um arquivo: `wc -l <nome-do-arquivo>`
+- Listar o tamanho em GB de arquivos: `ls -l transacoes_*.csv | awk '{s+=$5} END {print s/2^30 " GB"}'`
+
 ## Contribuindo
 
 Este projeto é uma ótima oportunidade para aprender e colaborar. Sinta-se à vontade para contribuir com novos exemplos, melhorias na documentação ou correções de problemas.

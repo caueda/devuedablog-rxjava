@@ -7,20 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StopWatch;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Locale;
-import java.util.Random;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Random;
+import java.util.concurrent.*;
 
 @Service
 @Data
@@ -34,50 +28,47 @@ public class TransactionService {
 
     @Async
     public void generateCSVInParallel(String filename, int numRows, CountDownLatch countDownLatch) throws IOException {
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        ExecutorService executorService = Executors.newFixedThreadPool(11);
 
-        List<Future<?>> futures = new ArrayList<>();
-        NumberFormat nf = NumberFormat.getInstance(new Locale("pt", "BR"));
+        Runtime.getRuntime().addShutdownHook(new Thread(executorService::shutdown));
+
+        List<Future<?>> futures = new ArrayList<>(10);
         for (int i = 0; i < 10; i++) {
             final int index = i;
             Future<?> future = executorService.submit(() -> {
-                try {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename + "_" + (index) + ".csv"))) {
-                        writer.write("id,transacao,moeda_origem,moeda_destino,valor\n");
-                        Random random = new Random();
-                        for (int j = 1; index <= numRows/10; j++) {
-                            log.info("Thread: " + Thread.currentThread().getName() + " - " + nf.format(j));
-                            String transacao = String.format("Transacao%010d", j);
-                            String moedaOrigem = getRandomCurrency();
-                            String moedaDestino = getDifferentCurrencyFromCurrency(moedaOrigem);
-                            double valor = getRandomValue();
-                            writer.write(j + "," + transacao + "," + moedaOrigem + "," + moedaDestino + "," + valor + "\n");
-                        }
-                    } catch (IOException e) {
-                        throw e;
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename + "_" +
+                        String.format("%02d", index)+ ".csv"))) {
+                    writer.write("id,transacao,moeda_origem,moeda_destino,valor\n");
+                    for (int j = 1; j <= numRows/10; j++) {
+                        String transacao = String.format("%s_Transacao_%010d", Thread.currentThread().getName(), j);
+//                        log.info("{}", transacao);
+                        String moedaOrigem = getRandomCurrency();
+                        String moedaDestino = getDifferentCurrencyFromCurrency(moedaOrigem);
+                        double valor = getRandomValue();
+                        writer.write(j + "," + transacao + "," + moedaOrigem + "," + moedaDestino + "," + valor + "\n");
                     }
+                    writer.flush();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.error(e.getMessage());
                 }
             });
             futures.add(future);
         }
 
-        futures.forEach(f -> {
-            try {
-                f.get();
-                countDownLatch.countDown();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        futures.forEach(future -> {
+            executorService.execute(() -> {
+                try {
+                    future.get(); // This will block until the future is done
+                    countDownLatch.countDown();
+                } catch (InterruptedException | ExecutionException e) {
+                    log.error(e.getMessage());
+                }
+            });
         });
-
-        stopWatch.stop();
-        System.out.println(Thread.currentThread().getName() + " - Tempo de processamento: " + stopWatch.getTotalTimeSeconds() + " segundos.");
     }
+
+
     public void generateCSV(String filename, int numRows) throws IOException {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
             writer.write("id,transacao,moeda_origem,moeda_destino,valor\n");

@@ -14,7 +14,7 @@ public class RxJavaSampleUtilsTest {
     TransactionService transactionService;
 
     @Test
-    public void generateCSV() throws IOException {
+    public void generateCSV() throws IOException {//106.317037 segundos
         String filename = "transacoes.csv";
 
         int numRows = 100_000_000;
@@ -29,14 +29,18 @@ public class RxJavaSampleUtilsTest {
 
     @Test
     public void generateCSV_in_parallel() throws IOException, InterruptedException {
-        CountDownLatch countDownLatch = new CountDownLatch(10);
+        int parallelism = 10;
+        CountDownLatch countDownLatch = new CountDownLatch(parallelism);
         String filename = "transacoes";
         int numRows = 100_000_000;
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
+
         transactionService.generateCSVInParallel(filename, numRows, countDownLatch);
+
         countDownLatch.await();
+
         stopWatch.stop();
         System.out.println(Thread.currentThread().getName() + " - Tempo de processamento: " + stopWatch.getTotalTimeSeconds() + " segundos.");
     }
